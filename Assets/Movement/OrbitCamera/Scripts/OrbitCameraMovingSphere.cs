@@ -1,9 +1,8 @@
-﻿using System.Globalization;
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace Movement.Surface
+namespace Movement.OrbitCamera.Scripts
 {
-    public class SurfaceMovingSphere : MonoBehaviour
+    public class OrbitCameraeMovingSphere : MonoBehaviour
     {
         [SerializeField, Range(0f, 10f)] private float maxSpeed = 5f;
         [SerializeField] Vector3 velocity = Vector3.zero, desiredVelocity = Vector3.zero;
@@ -14,6 +13,7 @@ namespace Movement.Surface
         [SerializeField, Range(0f, 100f)] float maxSnapSpeed = 100f;
         [SerializeField, Min(0f)] private float probeDistance = 1f;
         [SerializeField] private LayerMask probeMask = -1, stairsMask = -1;
+        [SerializeField] private Transform playerInputSpace = default;
         private int _jumpPhase;
         private int _groundContactCount, _steepContactCount;
         private Rigidbody _rigidbody;
@@ -44,7 +44,21 @@ namespace Movement.Surface
             playerInput.x = Input.GetAxis("Horizontal");
             playerInput.y = Input.GetAxis("Vertical");
             playerInput = Vector2.ClampMagnitude(playerInput, 1f);
-            desiredVelocity = new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed;
+            if (playerInputSpace)
+            {
+                Vector3 forward = playerInputSpace.forward;
+                forward.y = 0f;
+                forward.Normalize();
+                Vector3 right = playerInputSpace.right;
+                right.y = 0f;
+                right.Normalize();
+
+                desiredVelocity = (forward * playerInput.y + right * (playerInput.x)) * maxSpeed;
+            }
+            else
+            {
+                desiredVelocity = new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed;
+            }
 
             _desiredJump |= Input.GetButtonDown("Jump");
         }
