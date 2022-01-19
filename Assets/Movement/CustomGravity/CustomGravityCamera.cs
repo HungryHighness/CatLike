@@ -1,10 +1,8 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace Movement.OrbitCamera.Scripts
+namespace Movement.CustomGravity
 {
-    [RequireComponent(typeof(Camera))]
-    public class OrbitCamera : MonoBehaviour
+    public class CustomGravityCamera : MonoBehaviour
     {
         [SerializeField] private Transform focus = default;
         [SerializeField] private float focusRadius = 1f;
@@ -19,6 +17,8 @@ namespace Movement.OrbitCamera.Scripts
         private Vector2 _orbitAngles = new Vector2(45f, 0f);
         private float _lastManualRotationTime;
         private Camera _regularCamera;
+        private Quaternion _gravityAlignment = Quaternion.identity;
+        private Quaternion _orbitRotation;
 
         Vector3 CameraHalfExtends
         {
@@ -37,36 +37,27 @@ namespace Movement.OrbitCamera.Scripts
         {
             _regularCamera = GetComponent<Camera>();
             _focusPoint = focus.position;
-            transform.localRotation = Quaternion.Euler(_orbitAngles);
+            transform.localRotation = _orbitRotation = Quaternion.Euler(_orbitAngles);
         }
 
-        // Start is called before the first frame update
-        void Start()
-        {
-        }
-
-        // Update is called once per frame
-        void Update()
-        {
-        }
 
         private void LateUpdate()
         {
+            _gravityAlignment =
+                Quaternion.FromToRotation(_gravityAlignment * Vector3.up, CustomGravity.GetUpAxis(_focusPoint)) *
+                _gravityAlignment;
+
             UpdateFocusPoint();
-            Quaternion lookRotation;
+
 
             if (ManualRotation() || AutomaticRotation())
             {
                 ConstrainAngles();
-                lookRotation = Quaternion.Euler(_orbitAngles);
-            }
-            else
-            {
-                lookRotation = transform.localRotation;
+                _orbitRotation = Quaternion.Euler(_orbitAngles);
             }
 
+            Quaternion lookRotation = _gravityAlignment * _orbitRotation;
             Vector3 lookDirection = lookRotation * Vector3.forward;
-            Debug.DrawLine(transform.position, transform.position + lookDirection);
             Vector3 lookPosition = _focusPoint - lookDirection * distance;
 
             Vector3 rectOffset = lookDirection * _regularCamera.nearClipPlane;
@@ -128,9 +119,9 @@ namespace Movement.OrbitCamera.Scripts
                 return false;
             }
 
+            Vector3 alignedDelta = Quaternion.Inverse(_gravityAlignment) * (_focusPoint - _previousFocusPoint);
             Vector2 movement = new Vector2(
-                _focusPoint.x - _previousFocusPoint.x,
-                _focusPoint.z - _previousFocusPoint.z
+                alignedDelta.x, alignedDelta.z
             );
             float movementDeltaSqr = movement.sqrMagnitude;
             if (movementDeltaSqr < 0.000001f)
@@ -141,7 +132,7 @@ namespace Movement.OrbitCamera.Scripts
             float headingAngle = GetAngle(movement / Mathf.Sqrt(movementDeltaSqr));
 
             float deltaAbs = Mathf.Abs(Mathf.DeltaAngle(_orbitAngles.y, headingAngle));
-            float rotationChange = rotationSpeed * Math.Min(Time.unscaledDeltaTime, movementDeltaSqr);
+            float rotationChange = rotationSpeed * Mathf.Min(Time.unscaledDeltaTime, movementDeltaSqr);
             if (deltaAbs < alignSmoothRange)
             {
                 rotationChange *= deltaAbs / alignSmoothRange;

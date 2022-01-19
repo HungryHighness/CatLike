@@ -2,7 +2,7 @@
 
 namespace Movement.OrbitCamera.Scripts
 {
-    public class OrbitCameraeMovingSphere : MonoBehaviour
+    public class OrbitCameraMovingSphere : MonoBehaviour
     {
         [SerializeField, Range(0f, 10f)] private float maxSpeed = 5f;
         [SerializeField] Vector3 velocity = Vector3.zero, desiredVelocity = Vector3.zero;
