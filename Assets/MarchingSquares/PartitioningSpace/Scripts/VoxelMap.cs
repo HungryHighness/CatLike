@@ -1,7 +1,6 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace MarchingSquares.PartitioningSpace
+namespace MarchingSquares.PartitioningSpace.Scripts
 {
     public class VoxelMap : MonoBehaviour
     {
@@ -39,8 +38,29 @@ namespace MarchingSquares.PartitioningSpace
         {
             if (Input.GetMouseButtonDown(0))
             {
-                
+                if (Camera.main != null &&
+                    Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out var hitInfo))
+                {
+                    if (hitInfo.collider.gameObject == gameObject)
+                    {
+                        EditVoxels(transform.InverseTransformPoint(hitInfo.point));
+                    }
+                }
             }
+        }
+
+        private void EditVoxels(Vector3 point)
+        {
+            int voxelX = (int)((point.x + _halfSize) / _voxelSize);
+            int voxelY = (int)((point.y + _halfSize) / _voxelSize);
+            int chunkX = voxelX / voxelResolution;
+            int chunkY = voxelY / voxelResolution;
+            voxelX -= chunkX * voxelResolution;
+            voxelY -= chunkY * voxelResolution;
+            _chunks[chunkY * chunkResolution + chunkX].SetVoxel(voxelX, voxelY, true);
+            // Debug.Log(point.x + "," + point.y + "," + _voxelSize);
+            // Debug.Log(point.x + _halfSize + "," + point.y + _halfSize);
+            Debug.Log(voxelX + ", " + voxelY + " in chunk " + chunkX + ", " + chunkY);
         }
 
         private void CreateChunk(int i, int x, int y)
