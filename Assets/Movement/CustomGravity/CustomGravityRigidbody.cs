@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Movement.CustomGravity
@@ -10,13 +11,12 @@ namespace Movement.CustomGravity
         private Rigidbody _body;
         private float _floatDelay;
 
-
         private void Awake()
         {
             _body = GetComponent<Rigidbody>();
             _body.useGravity = false;
         }
-
+        
         private void FixedUpdate()
         {
             if (floatToSleep)

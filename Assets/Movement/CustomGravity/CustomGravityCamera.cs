@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace Movement.CustomGravity
 {
@@ -72,7 +73,6 @@ namespace Movement.CustomGravity
                 rectPosition = castFrom + castDirection * hit.distance;
                 lookPosition = rectPosition - rectOffset;
             }
-
             transform.SetPositionAndRotation(lookPosition, lookRotation);
         }
 
