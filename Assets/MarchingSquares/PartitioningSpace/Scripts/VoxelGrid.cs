@@ -49,5 +49,12 @@ namespace MarchingSquares.PartitioningSpace.Scripts
             _voxels[y * resolution + x] = state;
             SetVoxelColors();
         }
+
+        public void Apply(int x, int y, VoxelStencil stencil)
+        {
+            _voxels[y * resolution + x] = stencil.Apply(x, y);
+            SetVoxelColors();
+        }
+
     }
 }
