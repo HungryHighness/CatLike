@@ -14,6 +14,16 @@ namespace MarchingSquares.PartitioningSpace.Scripts
         private VoxelGrid[] _chunks;
 
         private float _chunkSize, _voxelSize, _halfSize;
+        private int _fillTypeIndex, _radiusIndex, _stencilIndex;
+        private static readonly string[] FillTypeName = { "Filled", "Empty" };
+        private static readonly string[] RadiusNames = { "0", "1", "2", "3", "4", "5" };
+        private static readonly string[] StencilNames = { "Square", "Circle" };
+
+        private readonly VoxelStencil[] _stencils = new[]
+        {
+            new VoxelStencil(),
+            new VoxelStencilCircle()
+        };
 
         private void Awake()
         {
@@ -51,16 +61,52 @@ namespace MarchingSquares.PartitioningSpace.Scripts
 
         private void EditVoxels(Vector3 point)
         {
-            int voxelX = (int)((point.x + _halfSize) / _voxelSize);
-            int voxelY = (int)((point.y + _halfSize) / _voxelSize);
-            int chunkX = voxelX / voxelResolution;
-            int chunkY = voxelY / voxelResolution;
-            voxelX -= chunkX * voxelResolution;
-            voxelY -= chunkY * voxelResolution;
-            _chunks[chunkY * chunkResolution + chunkX].SetVoxel(voxelX, voxelY, true);
-            // Debug.Log(point.x + "," + point.y + "," + _voxelSize);
-            // Debug.Log(point.x + _halfSize + "," + point.y + _halfSize);
-            Debug.Log(voxelX + ", " + voxelY + " in chunk " + chunkX + ", " + chunkY);
+            int centerX = (int)((point.x + _halfSize) / _voxelSize);
+            int centerY = (int)((point.y + _halfSize) / _voxelSize);
+
+            int xStart = (centerX - _radiusIndex) / voxelResolution;
+            if (xStart < 0)
+            {
+                xStart = 0;
+            }
+
+            int xEnd = (centerX + _radiusIndex) / voxelResolution;
+            if (xEnd >= chunkResolution)
+            {
+                xEnd = chunkResolution - 1;
+            }
+
+            int yStart = (centerY - _radiusIndex) / voxelResolution;
+            if (yStart < 0)
+            {
+                yStart = 0;
+            }
+
+            int yEnd = (centerY + _radiusIndex) / voxelResolution;
+            if (yEnd >= chunkResolution)
+            {
+                yEnd = chunkResolution - 1;
+            }
+
+
+            VoxelStencil activeStencil = _stencils[_stencilIndex];
+            activeStencil.Initialize(_fillTypeIndex == 0, _radiusIndex);
+
+            int voxelYOffset = yStart * voxelResolution;
+            for (int y = yStart; y <= yEnd; y++)
+            {
+                int i = y * chunkResolution + xStart;
+                int voxelXOffset = xStart * voxelResolution;
+                for (int x = xStart; x <= xEnd; x++, i++)
+                {
+                    activeStencil.SetCenter(centerX - voxelXOffset, centerY - voxelYOffset);
+                    Debug.Log((centerX - voxelXOffset) + "and" + (centerY - voxelYOffset));
+                    _chunks[i].Apply(activeStencil);
+                    voxelXOffset += voxelResolution;
+                }
+
+                voxelYOffset += voxelResolution;
+            }
         }
 
         private void CreateChunk(int i, int x, int y)
@@ -69,6 +115,19 @@ namespace MarchingSquares.PartitioningSpace.Scripts
             chunk.Initialize(voxelResolution, _chunkSize);
             chunk.transform.localPosition = new Vector3(x * _chunkSize - _halfSize, y * _chunkSize - _halfSize);
             _chunks[i] = chunk;
+        }
+
+        private void OnGUI()
+        {
+            GUILayout.BeginArea(new Rect(4f, 4f, 150f, 500f));
+            GUILayout.Label("Fill Type");
+            _fillTypeIndex = GUILayout.SelectionGrid(_fillTypeIndex, FillTypeName, 2);
+            GUILayout.Label("Radius");
+            _radiusIndex = GUILayout.SelectionGrid(_radiusIndex, RadiusNames, 6);
+            GUILayout.Label("Stencil");
+            _stencilIndex = GUILayout.SelectionGrid(_stencilIndex, StencilNames, 2);
+
+            GUILayout.EndArea();
         }
     }
 }

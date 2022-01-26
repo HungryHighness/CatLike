@@ -1,4 +1,7 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
 
 namespace MarchingSquares.PartitioningSpace.Scripts
 {
@@ -7,15 +10,18 @@ namespace MarchingSquares.PartitioningSpace.Scripts
     {
         public int resolution;
         public GameObject voxelPrefab;
-        private bool[] _voxels;
+        private Voxel[] _voxels;
         private float _voxelSize;
         private Material[] _voxelMaterials;
+        private Mesh _mesh;
+        private List<Vector3> _vertices;
+        private List<int> _triangles;
 
         public void Initialize(int resolution, float size)
         {
             this.resolution = resolution;
             _voxelSize = size / resolution;
-            _voxels = new bool[resolution * resolution];
+            _voxels = new Voxel[resolution * resolution];
             _voxelMaterials = new Material[_voxels.Length];
             for (int i = 0, y = 0; y < resolution; y++)
             {
@@ -25,35 +31,224 @@ namespace MarchingSquares.PartitioningSpace.Scripts
                 }
             }
 
+            GetComponent<MeshFilter>().mesh = _mesh = new Mesh();
+            _mesh.name = "VoxelGrid Mesh";
+            _vertices = new List<Vector3>();
+            _triangles = new List<int>();
+            Refresh();
+        }
+
+        private void Refresh()
+        {
             SetVoxelColors();
+            Triangulate();
+        }
+
+        private void Triangulate()
+        {
+            _vertices.Clear();
+            _triangles.Clear();
+            _mesh.Clear();
+
+            TriangulateCeilRows();
+
+            _mesh.vertices = _vertices.ToArray();
+            _mesh.triangles = _triangles.ToArray();
+        }
+
+        private void TriangulateCeilRows()
+        {
+            int cells = resolution - 1;
+            for (int i = 0, y = 0; y < cells; y++, i++)
+            {
+                for (int x = 0; x < cells; x++, i++)
+                {
+                    TriangulateCell(_voxels[i], _voxels[i + 1], _voxels[i + resolution], _voxels[i + 1 + resolution]);
+                }
+            }
+        }
+
+        private void TriangulateCell(Voxel a, Voxel b, Voxel c, Voxel d)
+        {
+            int cellType = 0;
+            if (a.state)
+            {
+                cellType |= 1;
+            }
+
+            if (b.state)
+            {
+                cellType |= 2;
+            }
+
+            if (c.state)
+            {
+                cellType |= 4;
+            }
+
+            if (d.state)
+            {
+                cellType |= 8;
+            }
+
+            switch (cellType)
+            {
+                case 0:
+                    return;
+                case 1:
+                    AddTriangle(a.position, a.yEdgePosition, a.xEdgePosition);
+                    break;
+                case 2:
+                    AddTriangle(b.position, a.xEdgePosition, b.yEdgePosition);
+                    break;
+                case 3:
+                    AddQuad(a.position, a.yEdgePosition, b.yEdgePosition, b.position);
+                    break;
+                case 4:
+                    AddTriangle(c.position, c.xEdgePosition, a.yEdgePosition);
+                    break;
+                case 5:
+                    AddQuad(a.position, c.position, c.xEdgePosition, a.xEdgePosition);
+                    break;
+                case 6:
+                    AddTriangle(b.position, a.xEdgePosition, b.yEdgePosition);
+                    AddTriangle(c.position, c.xEdgePosition, a.yEdgePosition);
+                    break;
+                case 7:
+                    AddPentagon(a.position, c.position, c.xEdgePosition, b.yEdgePosition, b.position);
+                    break;
+                case 8:
+                    AddTriangle(d.position, b.yEdgePosition, c.xEdgePosition);
+                    break;
+                case 9:
+                    AddTriangle(a.position, a.yEdgePosition, a.xEdgePosition);
+                    AddTriangle(d.position, b.yEdgePosition, c.xEdgePosition);
+                    break;
+                case 10:
+                    AddQuad(a.xEdgePosition, c.xEdgePosition, d.position, b.position);
+                    break;
+                case 11:
+                    AddPentagon(b.position, a.position, a.yEdgePosition, c.xEdgePosition, d.position);
+                    break;
+                case 12:
+                    AddQuad(a.yEdgePosition, c.position, d.position, b.yEdgePosition);
+                    break;
+                case 13:
+                    AddPentagon(c.position, d.position, b.yEdgePosition, a.xEdgePosition, a.position);
+                    break;
+                case 14:
+                    AddPentagon(d.position, b.position, a.xEdgePosition, a.yEdgePosition, c.position);
+                    break;
+                case 15:
+                    AddQuad(a.position, c.position, d.position, b.position);
+                    break;
+            }
+        }
+
+        private void AddTriangle(Vector3 a, Vector3 b, Vector3 c)
+        {
+            int vertexIndex = _vertices.Count;
+            _vertices.Add(a);
+            _vertices.Add(b);
+            _vertices.Add(c);
+            _triangles.Add(vertexIndex);
+            _triangles.Add(vertexIndex + 1);
+            _triangles.Add(vertexIndex + 2);
+        }
+
+        private void AddQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+        {
+            int vertexIndex = _vertices.Count;
+            _vertices.Add(a);
+            _vertices.Add(b);
+            _vertices.Add(c);
+            _vertices.Add(d);
+            _triangles.Add(vertexIndex);
+            _triangles.Add(vertexIndex + 1);
+            _triangles.Add(vertexIndex + 2);
+            _triangles.Add(vertexIndex);
+            _triangles.Add(vertexIndex + 2);
+            _triangles.Add(vertexIndex + 3);
+        }
+
+        private void AddPentagon(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 e)
+        {
+            int vertexIndex = _vertices.Count;
+            _vertices.Add(a);
+            _vertices.Add(b);
+            _vertices.Add(c);
+            _vertices.Add(d);
+            _vertices.Add(e);
+            _triangles.Add(vertexIndex);
+            _triangles.Add(vertexIndex + 1);
+            _triangles.Add(vertexIndex + 2);
+            _triangles.Add(vertexIndex);
+            _triangles.Add(vertexIndex + 2);
+            _triangles.Add(vertexIndex + 3);
+            _triangles.Add(vertexIndex);
+            _triangles.Add(vertexIndex + 3);
+            _triangles.Add(vertexIndex + 4);
         }
 
         private void SetVoxelColors()
         {
             for (var i = 0; i < _voxels.Length; i++)
             {
-                _voxelMaterials[i].color = _voxels[i] ? Color.black : Color.white;
+                _voxelMaterials[i].color = _voxels[i].state ? Color.black : Color.white;
             }
         }
 
         private void CreateVoxel(int i, int x, int y)
         {
             GameObject o = Instantiate(voxelPrefab, transform, true);
-            o.transform.localPosition = new Vector3((x + 0.5f) * _voxelSize, (y + 0.5f) * _voxelSize);
-            o.transform.localScale = Vector3.one * _voxelSize * 0.9f;
+            o.transform.localPosition = new Vector3((x + 0.5f) * _voxelSize, (y + 0.5f) * _voxelSize, -0.01f);
+            o.transform.localScale = Vector3.one * _voxelSize * 0.1f;
             _voxelMaterials[i] = o.GetComponent<MeshRenderer>().material;
+            _voxels[i] = new Voxel(x, y, _voxelSize);
         }
 
         public void SetVoxel(int x, int y, bool state)
         {
-            _voxels[y * resolution + x] = state;
+            _voxels[y * resolution + x].state = state;
             SetVoxelColors();
         }
 
-        public void Apply(int x, int y, VoxelStencil stencil)
+        public void Apply(VoxelStencil stencil)
         {
-            _voxels[y * resolution + x] = stencil.Apply(x, y);
-            SetVoxelColors();
+            int xStart = stencil.XStart;
+            if (xStart < 0)
+            {
+                xStart = 0;
+            }
+
+            int xEnd = stencil.XEnd;
+            if (xEnd >= resolution)
+            {
+                xEnd = resolution - 1;
+            }
+
+            int yStart = stencil.YStart;
+            if (yStart < 0)
+            {
+                yStart = 0;
+            }
+
+            int yEnd = stencil.YEnd;
+            if (yEnd >= resolution)
+            {
+                yEnd = resolution - 1;
+            }
+
+            for (int y = yStart; y <= yEnd; y++)
+            {
+                int i = y * resolution + xStart;
+                for (int x = xStart; x <= xEnd; x++, i++)
+                {
+                    _voxels[i].state = stencil.Apply(x, y, _voxels[i].state);
+                }
+            }
+
+            Refresh();
         }
 
     }
