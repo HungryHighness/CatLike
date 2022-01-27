@@ -10,8 +10,10 @@ namespace MarchingSquares.PartitioningSpace.Scripts
     {
         public int resolution;
         public GameObject voxelPrefab;
+        public VoxelGrid xNeighbor, yNeighbor, xyNeighbor;
         private Voxel[] _voxels;
-        private float _voxelSize;
+        private Voxel _dummyX, _dummyY, _dummyT;
+        private float _voxelSize, _gridSize;
         private Material[] _voxelMaterials;
         private Mesh _mesh;
         private List<Vector3> _vertices;
@@ -20,9 +22,14 @@ namespace MarchingSquares.PartitioningSpace.Scripts
         public void Initialize(int resolution, float size)
         {
             this.resolution = resolution;
+            _gridSize = size;
             _voxelSize = size / resolution;
             _voxels = new Voxel[resolution * resolution];
             _voxelMaterials = new Material[_voxels.Length];
+            _dummyX = new Voxel();
+            _dummyY = new Voxel();
+            _dummyT = new Voxel();
+
             for (int i = 0, y = 0; y < resolution; y++)
             {
                 for (int x = 0; x < resolution; x++, i++)
@@ -50,7 +57,16 @@ namespace MarchingSquares.PartitioningSpace.Scripts
             _triangles.Clear();
             _mesh.Clear();
 
+            if (xNeighbor != null)
+            {
+                _dummyX.BecomeXDummyOf(xNeighbor._voxels[0], _gridSize);
+            }
+
             TriangulateCeilRows();
+            if (yNeighbor != null)
+            {
+                TriangulateGapRow();
+            }
 
             _mesh.vertices = _vertices.ToArray();
             _mesh.triangles = _triangles.ToArray();
@@ -65,6 +81,42 @@ namespace MarchingSquares.PartitioningSpace.Scripts
                 {
                     TriangulateCell(_voxels[i], _voxels[i + 1], _voxels[i + resolution], _voxels[i + 1 + resolution]);
                 }
+
+                if (xNeighbor != null)
+                {
+                    TriangulateGapCell(i);
+                }
+            }
+        }
+
+        private void TriangulateGapCell(int i)
+        {
+            Voxel dummySwap = _dummyT;
+            dummySwap.BecomeXDummyOf(xNeighbor._voxels[i + 1], _gridSize);
+            _dummyT = _dummyX;
+            _dummyX = dummySwap;
+            TriangulateCell(_voxels[i], _dummyT, _voxels[i + resolution], _dummyX);
+        }
+
+        private void TriangulateGapRow()
+        {
+            _dummyY.BecomeYDummyOf(yNeighbor._voxels[0], _gridSize);
+            int cells = resolution - 1;
+            int offset = cells * resolution;
+
+            for (int x = 0; x < cells; x++)
+            {
+                Voxel dummySwap = _dummyT;
+                dummySwap.BecomeYDummyOf(yNeighbor._voxels[x + 1], _gridSize);
+                _dummyT = _dummyY;
+                _dummyY = dummySwap;
+                TriangulateCell(_voxels[x + offset], _voxels[x + offset + 1], _dummyT, _dummyY);
+            }
+
+            if (xNeighbor != null)
+            {
+                _dummyT.BecomeXYDummyOf(xyNeighbor._voxels[0], _gridSize);
+                TriangulateCell(_voxels[_voxels.Length - 1], _dummyX, _dummyY, _dummyT);
             }
         }
 

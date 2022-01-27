@@ -64,7 +64,7 @@ namespace MarchingSquares.PartitioningSpace.Scripts
             int centerX = (int)((point.x + _halfSize) / _voxelSize);
             int centerY = (int)((point.y + _halfSize) / _voxelSize);
 
-            int xStart = (centerX - _radiusIndex) / voxelResolution;
+            int xStart = (centerX - _radiusIndex - 1) / voxelResolution;
             if (xStart < 0)
             {
                 xStart = 0;
@@ -76,7 +76,7 @@ namespace MarchingSquares.PartitioningSpace.Scripts
                 xEnd = chunkResolution - 1;
             }
 
-            int yStart = (centerY - _radiusIndex) / voxelResolution;
+            int yStart = (centerY - _radiusIndex - 1) / voxelResolution;
             if (yStart < 0)
             {
                 yStart = 0;
@@ -92,20 +92,20 @@ namespace MarchingSquares.PartitioningSpace.Scripts
             VoxelStencil activeStencil = _stencils[_stencilIndex];
             activeStencil.Initialize(_fillTypeIndex == 0, _radiusIndex);
 
-            int voxelYOffset = yStart * voxelResolution;
-            for (int y = yStart; y <= yEnd; y++)
+            int voxelYOffset = yEnd * voxelResolution;
+            for (int y = yEnd; y >= yStart; y--)
             {
-                int i = y * chunkResolution + xStart;
-                int voxelXOffset = xStart * voxelResolution;
-                for (int x = xStart; x <= xEnd; x++, i++)
+                int i = y * chunkResolution + xEnd;
+                int voxelXOffset = xEnd * voxelResolution;
+                for (int x = xEnd; x >= xStart; x--, i--)
                 {
                     activeStencil.SetCenter(centerX - voxelXOffset, centerY - voxelYOffset);
                     Debug.Log((centerX - voxelXOffset) + "and" + (centerY - voxelYOffset));
                     _chunks[i].Apply(activeStencil);
-                    voxelXOffset += voxelResolution;
+                    voxelXOffset -= voxelResolution;
                 }
 
-                voxelYOffset += voxelResolution;
+                voxelYOffset -= voxelResolution;
             }
         }
 
@@ -115,6 +115,19 @@ namespace MarchingSquares.PartitioningSpace.Scripts
             chunk.Initialize(voxelResolution, _chunkSize);
             chunk.transform.localPosition = new Vector3(x * _chunkSize - _halfSize, y * _chunkSize - _halfSize);
             _chunks[i] = chunk;
+            if (x > 0)
+            {
+                _chunks[i - 1].xNeighbor = _chunks[i];
+            }
+
+            if (y > 0)
+            {
+                _chunks[i - chunkResolution].yNeighbor = _chunks[i];
+                if (x > 0)
+                {
+                    _chunks[i - chunkResolution - 1].xyNeighbor = _chunks[i];
+                }
+            }
         }
 
         private void OnGUI()
